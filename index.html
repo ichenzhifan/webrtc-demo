@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document</title>
+    </head>
+    <body>
+        <button id="call">call</button>
+        <button id="send">send</button>
+        <video id="video"></video>
+        <video id="remoteVideo"></video>
+
+        <script>
+            var pc = new RTCPeerConnection(null);
+            var ws;
+
+            // getUserMedia
+            var constraints = {
+                video: true,
+                audio: true
+            };
+            function success(stream) {
+                var video = document.querySelector('#video');
+                video.srcObject = stream;
+                video.play();
+
+                pc.onaddstream({stream: stream});
+                pc.addStream(stream);
+
+                // 呼叫初始化
+                pc.createOffer(offer => {
+                    pc.setLocalDescription(new RTCSessionDescription(offer), () => {
+                        if(ws){
+                            ws.send(stream);
+                        }
+                    }, error)
+                });
+            }
+            function error(e) {
+                console.log('error', e);
+            }
+
+            // rtcpeerconnection
+            pc.onaddstream = function (obj) {
+                remoteVideo.srcObject = obj.stream;
+                remoteVideo.play();
+            }
+
+            // Helper functions
+            function endCall() {
+                remoteVideo.pause();
+                pc.close();
+            }
+
+            function error(err) {
+                endCall();
+            }
+
+            
+            navigator.getUserMedia(constraints, success, error);
+
+
+            const callBtn = document.querySelector('#call');
+            const sendBtn = document.querySelector('#send');
+            
+            callBtn.addEventListener('click', () => {
+                ws = new WebSocket('ws://localhost:9001/');
+                ws.onopen = function () {
+                    console.log('WebSocket Client Connected');
+                    // ws.send('Hi this is web client.');
+                };
+                ws.onmessage = function (e) {
+                    var offer = e.data;
+
+                    pc.setRemoteDescription(new RTCSessionDescription(offer), () => {
+                        pc.createAnswer(answer => {
+                            pc.setLocalDescription(new RTCSessionDescription(answer), ()=>{
+                                ws.send(answer);
+                            }, error)
+                        })
+                    }, error)
+                };
+            })
+            send.addEventListener('click', () => {
+                if(!ws){
+                    console.log('没有链接')
+                    return;
+                }
+
+                ws.send('ddddd')
+            });
+        </script>
+    </body>
+</html>
